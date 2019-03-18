@@ -58,7 +58,7 @@ Ruby on Rails style guide
 
 
 ```ruby
-<%=render :partial => "/jobs/show", :locals => { :job => @job } %>
+<%= render :partial => "/jobs/show", :locals => { :job => @job } %>
 ```
 
 ### Assets
