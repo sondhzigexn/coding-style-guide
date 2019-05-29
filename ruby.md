@@ -40,6 +40,7 @@ Ruby style guide
 ## Cú pháp
   - Dùng () ở khai báo hàm có truyền tham số, không dùng () trong trường hợp hàm không nhận tham số
   - Nếu block chỉ làm một việc thì ưu tiên dùng shorthand
+  
     ```ruby
     # bad
     names.map { |name| name.upcase }
@@ -48,22 +49,69 @@ Ruby style guide
     names.map(&:upcase)
     ```
    - Nếu block 1 dòng thì dùng `{...}`, nếu nhiều dòng thì dùng `do...end`
+   
+     ```ruby
+     # bad
+     names.each do |name|
+      puts name
+     end
+
+     # good
+     names.each { |name| puts name }
+
+     # bad
+     names.select do |name|
+      name.start_with?('S')
+     end.map { |name| name.upcase }
+
+     # good
+     names.select { |name| name.start_with?('S') }.map(&:upcase)
+     ```
+   - Dùng kiểu gán rút gọn khi có thể
+     ```ruby
+     # bad
+     x = x + y
+     x = x * y
+     x = x**y
+     x = x / y
+     x = x || y
+     x = x && y
+
+     # good
+     x += y
+     x *= y
+     x **= y
+     x /= y
+     x ||= y
+     x &&= y
+     ```
+   - Ưu tiên dùng map hơn collect, find hơn detect, select hơn find_all, reduce hơn inject và size hơn length
+   - Đừng dùng count để thay cho size. Với đối tượng Enumerable hay là Array, nó sẽ duyệt qua từng phần tử để đếm số lượng phần tử, sẽ rất tốn thời gian
+   
     ```ruby
     # bad
-    names.each do |name|
-      puts name
-    end
+    some_hash.count
 
     # good
-    names.each { |name| puts name }
-
+    some_hash.size
+    ```
+  - Dùng flat_map thay cho map + flatten. Cái này không áp dụng cho mảng sâu hơn 2 cấp
+    
+    ```ruby
     # bad
-    names.select do |name|
-      name.start_with?('S')
-    end.map { |name| name.upcase }
+    all_songs = users.map(&:songs).flatten.uniq
 
     # good
-    names.select { |name| name.start_with?('S') }.map(&:upcase)
+    all_songs = users.flat_map(&:songs).uniq
+    ```
+  - Ưu tiên dùng reverse_each hơn reverse.each vì một số lớp mà include Enumerable sẽ hoạt động hiệu quả hơn
+  
+    ```ruby
+    # bad
+    array.reverse.each { ... }
+
+    # good
+    array.reverse_each { ... }
     ```
     
 ### Các câu lệnh điều kiện
@@ -91,6 +139,20 @@ Ruby style guide
 
     # good
     result = some_condition ? something : something_else
+    ```
+  - Khi kiểm tra điều kiện thì không cần kiểm tra với nil trừ khi làm với boolean.
+    ```ruby
+    # bad
+    do_something if !something.nil?
+    do_something if something != nil
+
+    # good
+    do_something if something
+
+    # good - dealing with a boolean
+    def value_set?
+      !@some_boolean.nil?
+    end
     ```
     
 ### Câu lệnh lặp
@@ -137,14 +199,109 @@ end
 
 ## Qui tắc đặt tên
 
-  - Tên biến, tên hàm, symbol: `a_var_name`, `get_prime`, `a_symbol`.
+  - Tên biến, tên hàm, symbol: `a_var_name`, `get_prime`, `a_symbol`
   - Tên class, module: SomeClass, SomeModule
   - Hằng số: SOME_CONST
+  - Phương thức trả về boolean thì nên có thêm `?` đằng sau (vd: `Array#empty?`)
+  - Tránh đặt tiền tố cho tên phương thức với các động từ bổ trợ như is, does, hay can. Những từ này không cần thiết và nghĩa quá chung chung, không đồng nhất với các phương thức boolean của ngôn ngữ: empty? hay include?
+    
+    ```ruby
+    # bad
+    class Person
+      def is_tall?
+        true
+      end
 
+      def can_play_basketball?
+        false
+      end
+
+      def does_like_candy?
+        true
+      end
+    end
+
+    # good
+    class Person
+      def tall?
+        true
+      end
+
+      def basketball_player?
+        false
+      end
+
+      def likes_candy?
+        true
+      end
+    end
+    ```
+  - Tên của những phương thức *nguy hiểm* (vd: xóa dữ liệu DB, ghi vào file, sửa self, raise exception...) nên kết thúc bằng một dấu `!` 
+  
+    ```Ruby
+    # bad - there is no matching 'safe' method
+    class Person
+      def update!
+      end
+    end
+
+    # good
+    class Person
+      def update
+      end
+    end
+
+    # good
+    class Person
+      def update!
+      end
+
+      def update
+      end
+    end
+    ```
+  - Nếu có phương thức *nguy hiểm* thì nên có thêm phương thức *an toàn*
+  
+    ```Ruby
+    class Array
+      def flatten_once!
+        res = []
+
+        each do |e|
+          [*e].each { |f| res << f }
+        end
+
+        replace(res)
+      end
+
+      def flatten_once
+        dup.flatten_once!
+      end
+    end
+    ```
+  
 ## Class, Module
   - Dùng include, extend ngay sau khai báo class
   - Dùng `attr_reader`, `attr_writer`, `attr_accessor` thay cho các hàm set, get
-  - Hạn chế dùng `self << class`, nên dùng `def self.a_func`
+  - Tránh sử dụng biến class `@@` trừ khi thực sự cần thiết
+  - Viết protected methods trước private methods. Lúc đó, khi định nghĩa các protected, private method, căn lề trùng với public method và đặt dòng trắng trên các protected, private methods này, không đặt dòng trắng ở bên dưới
+    ```ruby
+    class SomeClass
+      def public_method
+        # ...
+      end
+
+      protected
+      def protected_method
+        # ...
+      end
+
+      private
+      def private_method
+        # ...
+      end
+    end
+    ```
 
 ## Collection
   - Dùng %w để khai báo mảng các chuỗi
@@ -156,10 +313,39 @@ end
   - Dùng %Q để khai báo chuỗi có ', ", #{}
   - Dùng + để cắt khi chuỗi quá dài. Ví dụ:
 
-```ruby
-long_str = 'a very long long long long long long' + 
-           'long long long long string'
-```
+    ```ruby
+    long_str = 'a very long long long long long long' + 
+               'long long long long string'
+    ```
+  - Khi sử dụng here document, delimiter được căn lề thẳng với lệnh gán.
+    ```ruby
+    module AttrComparable
+      module ClassMethods
+        def attr_comparable *attrs
+          class_eval <<-DELIM
+            attrs.each do |attr|
+              define_method(attr.to_s<<'?'){|param| self.send(attr) == param }
+            end
+          DELIM
+        end
+      end
+    #...
+    ```
+## Comparison
+  - Khi so sánh biến số với một giá trị khác như số thực hay hằng số thì viết biến số sang bên phải
+    ```ruby
+    greeting = "Hello!"
+
+    # bad
+    if greeting == "Hola!"
+      ...
+    end
+
+    # good
+    if "Hola!" == greeting
+      ...
+    end
+    ```
 
 ## References
 - Based on: http://wiki.zigexn.vn/doku.php?id=coding_rule (Zigexn VeNtura internal only)
