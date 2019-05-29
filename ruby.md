@@ -132,7 +132,7 @@ Ruby style guide
     array.reverse_each { ... }
     ```
     
-### Các câu lệnh điều kiện
+#### Các câu lệnh điều kiện
   - Không dùng and, or. Dùng &&, ||
   - Dùng ''unless'' thay cho ''if not''
   - Không dùng ''unless ... else''
@@ -173,11 +173,11 @@ Ruby style guide
     end
     ```
     
-### Câu lệnh lặp
+#### Câu lệnh lặp
   - Hạn chế dùng câu for, nên dùng câu each
   - Dùng ''until'' thay cho  ''while not''
 
-### Khai báo và gọi hàm
+#### Khai báo và gọi hàm
   - Bỏ () khi gọi các hàm không tham số
   - Nếu hàm có tham số, để các tham số trong (). Ví dụ: `foo(param1, param2)`.
   - Không cần dùng return ở  dòng cuối cùng trong khai báo hàm. Ví dụ:
