@@ -2,7 +2,7 @@
 Ruby style guide
 
 ## Các qui tắt chung
-  - Dùng 2 space
+  - Căn lề dùng 2 space
   - Dùng space trước và sau các dấu +,-,x,/, {, }, =
   - Không dùng space sau dấu (, [ và trước dấu ), ]
   - Thêm dấu _ ở các số lớn. Vd: 100000 --> 100_000
@@ -34,11 +34,17 @@ Ruby style guide
       result
     end
     ```
+  - Sau ký tự comment out `#` đặt 1 khoảng trắng
+    ```ruby
+    #this is bad comment
+
+    # this is good comment
+    ```
   - Tránh dùng khoảng trắng thừa (thường gặp ở cuối dòng)
   - Cuối file nên có thêm một dòng trống
 
 ## Cú pháp
-  - Dùng () ở khai báo hàm có truyền tham số, không dùng () trong trường hợp hàm không nhận tham số
+  - Chỉ dùng () ở khai báo hàm có truyền tham số
   - Nếu block chỉ làm một việc thì ưu tiên dùng shorthand
   
     ```ruby
@@ -48,45 +54,57 @@ Ruby style guide
     # good
     names.map(&:upcase)
     ```
-   - Nếu block 1 dòng thì dùng `{...}`, nếu nhiều dòng thì dùng `do...end`
+  - Nếu block 1 dòng thì dùng `{...}`, nếu nhiều dòng thì dùng `do...end`
    
-     ```ruby
-     # bad
-     names.each do |name|
-      puts name
-     end
+    ```ruby
+    # bad
+    names.each do |name|
+    puts name
+    end
 
-     # good
-     names.each { |name| puts name }
+    # good
+    names.each { |name| puts name }
 
-     # bad
-     names.select do |name|
-      name.start_with?('S')
-     end.map { |name| name.upcase }
+    # bad
+    names.select do |name|
+    name.start_with?('S')
+    end.map { |name| name.upcase }
 
-     # good
-     names.select { |name| name.start_with?('S') }.map(&:upcase)
-     ```
-   - Dùng kiểu gán rút gọn khi có thể
-     ```ruby
-     # bad
-     x = x + y
-     x = x * y
-     x = x**y
-     x = x / y
-     x = x || y
-     x = x && y
+    # good
+    names.select { |name| name.start_with?('S') }.map(&:upcase)
+    ```
+  - Trong trường hợp có thể bỏ được return thì bỏ
+    ```ruby
+    # bad
+    def some_method(some_arr)
+      return some_arr.size
+    end
 
-     # good
-     x += y
-     x *= y
-     x **= y
-     x /= y
-     x ||= y
-     x &&= y
-     ```
-   - Ưu tiên dùng map hơn collect, find hơn detect, select hơn find_all, reduce hơn inject và size hơn length
-   - Đừng dùng count để thay cho size. Với đối tượng Enumerable hay là Array, nó sẽ duyệt qua từng phần tử để đếm số lượng phần tử, sẽ rất tốn thời gian
+    # good
+    def some_method(some_arr)
+      some_arr.size
+    end
+    ```
+  - Dùng kiểu gán rút gọn khi có thể
+    ```ruby
+    # bad
+    x = x + y
+    x = x * y
+    x = x**y
+    x = x / y
+    x = x || y
+    x = x && y
+
+    # good
+    x += y
+    x *= y
+    x **= y
+    x /= y
+    x ||= y
+    x &&= y
+    ```
+  - Ưu tiên dùng map hơn collect, find hơn detect, select hơn find_all, reduce hơn inject và size hơn length
+  - Đừng dùng count để thay cho size. Với đối tượng Enumerable hay là Array, nó sẽ duyệt qua từng phần tử để đếm số lượng phần tử, sẽ rất tốn thời gian
    
     ```ruby
     # bad
