@@ -8,15 +8,15 @@ Ruby style guide
   - Thêm dấu _ ở các số lớn. Vd: 100000 --> 100_000
 
 ## Cú pháp
-  - Dùng (, ) ở khai báo hàm có truyền tham số, không dùng (, ) trong trường hợp hàm không nhận tham số
+  - Dùng ( ) ở khai báo hàm có truyền tham số, không dùng () trong trường hợp hàm không nhận tham số
 
 ### Các câu lệnh điều kiện
   - Không dùng and, or. Dùng &&, ||
   - Dùng ''unless'' thay cho ''if not''
   - Không dùng ''unless ... else''
-  - Không dùng (, ) ở điều kiện trong câu if, unless
+  - Không dùng () ở điều kiện trong câu if, unless
   - Dùng các hàm số có sẵn như ''x.even?, x.odd?, x.nil?, x.zero?'' thay cho các câu so sánh ''x % 2 == 0, x % 2 == 1, x == nil, x == 0''
-  - Trong trường hợp thân câu if/unless/while/until chỉ có một dòng, dùng inline format. Ví dụ
+  - Trong trường hợp câu if/unless/while/until chỉ có một dòng, dùng inline format. Ví dụ
 
 ```ruby
 do_something if some_condition
@@ -33,7 +33,7 @@ end
   - Dùng ''until'' thay cho  ''while not''
 
 ### Khai báo và gọi hàm
-  - Bỏ (, ) khi gọi các hàm không tham số
+  - Bỏ () khi gọi các hàm không tham số
   - Nếu hàm có tham số, để các tham số trong (). Ví dụ: `foo(param1, param2)`.
   - Không cần dùng return ở  dòng cuối cùng trong khai báo hàm. Ví dụ:
 
