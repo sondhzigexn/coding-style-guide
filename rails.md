@@ -3,34 +3,236 @@ Ruby on Rails style guide
 ## Config chung
 ### Initializer
   - Để các code khởi tạo trong thư mục `config/initializers`. Các đoạn code để trong thư mục này sẽ tự động execute khi server khởi động.
-  - Để các code khởi tạo thành các file riêng theo gem. Ví dụ: carrierwave.rb, devise.rb...
+  - Đối với những file code khởi tạo của các gem như carierwave.rb, active_admin.rb,  devise.rb... thì đặt tên file giống tên gem.
+  - Những thiết lập cho từng môi trường development, test, production thì thiết lập trong các file tương ứng trong thư mục config/environments
+  - Thiết lập cho tất cả môi trường thì viết vào config/application.rb
+  - Trong trường hợp tạo môi trường mới như staging thì cố gắng thiết lập gần giống môi trường production
+  - Có thể dùng gem figaro để app bảo mật hơn
 
-### Global variable
-  - Các biến global như email dùng để gửi mail, hostname, ... nên để trong các file `config/enviroments/development.rb`, `config/enviroments/production.rb`
-  - Trường hợp các biến dùng cho tất cả môi trường thì định nghĩa trong file `application.rb`
-  - Có thể dùng gem figaro
+## Routing
+  * Khi cần phải thêm action vào RESTful resource thì sử dụng ``` member ``` và ``` collection ```
 
-## Routing and links
-### Routes.rb
+  ```ruby
+  # cách viết không tốt
+  get 'subscriptions/:id/unsubscribe'
+  resources :subscriptions
 
-  - Không dùng `match`, cần chỉ cụ thể phương thức như `post`, `get`, `put`, ...
-  - Dùng `link_to "Display text, name_route_url` thay cho `link_to "Display text, controller: 'name', action: 'route'`.
+  # cách viết tốt
+  resources :subscriptions do
+    get 'unsubscribe', on: :member
+  end
+
+  # cách viết không tốt
+  get 'photos/search'
+  resources :photos
+
+  # cách viết tốt
+  resources :photos do
+    get 'search', on: :collection
+  end
+  ```
+
+  * Sử dụng block để nhóm lại khi có nhiều ``` member/collection ```
+
+  ```ruby
+  resources :subscriptions do
+    member do
+      get 'unsubscribe'
+      get 'subscribe'
+    end
+  end
+
+  resources :photos do
+    collection do
+      get 'search'
+      get 'trashes'
+    end
+  end
+  ```
+
+  * Sử dụng routes lồng nhau (nested routes) để thể hiện mối quan hệ của các model trong ActiveRecord
+
+  ```ruby
+  class Post < ActiveRecord::Base
+    has_many :comments
+  end
+
+  class Comments < ActiveRecord::Base
+    belongs_to :post
+  end
+
+  # routes.rb
+  resources :posts do
+    resources :comments
+  end
+  ```
+
+  * Sử dụng namespace để nhóm các action liên quan
+
+  ```ruby
+  namespace :admin do
+    # Directs /admin/products/* to Admin::ProductsController
+    # (app/controllers/admin/products_controller.rb)
+    resources :products
+  end
+  ```
+
+  * Không sử dụng wild controller route trước đây
+
+  **Lý do**
+
+  Viết theo cách này sẽ làm cho tất cả action của mọi controller có thể bị truy cập bằng GET request
+
+  ```ruby
+  # Cách viết cực kỳ không tốt
+  match ':controller(/:action(/:id(.:format)))'
+  ```
+
+## Controller
+
+*  Cố gắng gọt giũa nội dung của controller. Trong controller chỉ nên thực hiện việc lấy những data mà bên view cần, không code business logic ở đây. (Những cái đó nên viết trong model)
+
+* Mỗi action trong controller thì lý tưởng là 1 method initialize model , 1 method seach , 1 method thực hiện tác vụ gì đó.
+
+* Không chia sẻ giữa controller và view từ 2 biến instance trở lên.
+
+* Đối với biến instance biểu thị resource chính ở Controller, hãy gán vào object của resource đó. Ví dụ, đối với `@article` ở bên trong ArticlesController thì gán instance của class `Article` vào. Với `@articles` thì gán collection của nó vào.
+
+```ruby
+# Không tốt
+class ArticlesController < ApplicationController
+  def index
+    @articles = Article.all.pluck [:id, :title]
+  end
+
+  def show
+    @article = "This is an article."
+  end
+end
+
+# Tốt
+class ArticlesController < ApplicationController
+  def index
+    @articles = Article.all
+  end
+
+  def show
+    @article = Article.find params[:id]
+  end
+end
+```
+
+* Controller cần xử lý ngoại lệ xuất hiện tại model. Cần phải thông báo việc xuất hiện ngoại lệ bằng cách gửi đến client code 400 trở lên.
+
+* Để tham số của render là symbol.
+
+```ruby
+render :new
+```
+
+* Không lược bỏ action ngay cả khi action đó không xử lý gì cả mà chỉ để hiển thị view
+
+```ruby
+class HomeController < ApplicationController
+
+  def index
+  end
+
+end
+```
+
+* Đối với những action được truy cập bằng những method HTTP khác GET thì nhất định sau khi đã xử lý xong phải redirect đến một action được truy cập bằng phương thức GET. Tuy nhiên, những trường hợp mà không truy cập trực tiếp, ví dụ như chỉ là API để trả về json thì điều này không cần thiết.
+
+**Lý do**
+
+Ngăn chặn việc phát sinh nhiều xử lý khi mà người dùng thao tác refresh.
+
+* Trong hàm callback nên sử dụng tên method hoặc ```lamda```. Không được sử dụng block ở đây.
+
+
+```ruby
+# cách viết không tốt
+
+  before_action{@users = User.all} # brock
+
+# cách viết tốt
+
+  before_action :methodname # method name
+
+# cách viết cũng tốt
+
+  before_action ->{@users = User.all} # lambda
+```
 
 ## Models
-### Migration file
-  - Đặt timestamps ngay sau cột Primary Key
-  - Đặt index trên các cột Foreign Key
+
+  * Có thể sử dụng model không cần dựa trên ActiveRecord
+
+  * Cố gắng đặt tên ngắn, dễ hiểu nhưng không giản lược quá mức.
+
+  * Sử dụng gem [ActiveAttr](https://github.com/cgriego/active_attr) khi cần có những thao tác của ActiveRecord giống như validation trong model.
+
+  ```ruby
+  class Message
+    include ActiveAttr::Model
+
+    attribute :name
+    attribute :email
+    attribute :content
+    attribute :priority
+
+    attr_accessible :name, :email, :content
+
+    validates_presence_of :name
+    validates_format_of :email, :with => /\A[-a-z0-9_+\.]+\@([-a-z0-9]+\.)+[a-z0-9]{2,4}\z/i
+    validates_length_of :content, :maximum => 500
+  end
+  ```
 
 ### ActiveRecord
   - Hạn chế đổi các giá trị mặc định của Model như tên bảng, tên cột khóa chính(id).
+  * Nhóm các macro lại, Và đặt các constant của class lên đầu tiên. Các macro cùng loại ( như là belongs_to và has_many ) hoặc là cùng macro nhưng tham số khác nhau ( ví dụ như validates ) thì sắp xếp theo thứ tự từ điển. Các callback thì sắp xếp theo thứ tự thời gian.
   - Thứ tự các phần trong một model:
-    - `default_scope`, `scope`.
-    - Các khai báo hằng số.
-    - `attr_accessor`, `attr_accessible`, ...
-    - Các hàm quan hệ(`has_many`, `belongs_to`, `has_one`, ...).
-    - Các hàm `validates`.
-    - Các hàm callback(`before_save`, ...).
-    - Các hàm macro của các gem(như các macro của Devise).
+    ```ruby
+    class User < ActiveRecord::Base
+      # keep the default scope first (if any)
+      default_scope { where(active: true) }
+
+      # constants come up next
+      COLORS = %w(red green blue)
+
+      # afterwards we put attr related macros
+      attr_accessor :formatted_date_of_birth
+
+      attr_accessible :login, :first_name, :last_name, :email, :password
+
+      # Rails4+ enums after attr macros, prefer the hash syntax
+      enum gender: { female: 0, male: 1 }
+
+      # followed by association macros
+      belongs_to :country
+
+      has_many :authentications, dependent: :destroy
+
+      # and validation macros
+      validates :email, presence: true
+      validates :username, presence: true
+      validates :username, uniqueness: { case_sensitive: false }
+      validates :username, format: { with: /\A[A-Za-z][A-Za-z0-9._-]{2,19}\z/ }
+      validates :password, format: { with: /\A\S{8,128}\z/, allow_nil: true }
+
+      # next we have callbacks
+      before_save :cook
+      before_save :update_username_lower
+
+      # scopes
+      scope :active, ->{where(active: true)}
+  
+      # other macros (like devise's) should be placed after the callbacks
+
+      ...
+    end
+    ```
   - Nên sử dụng `has_many :through` thay cho `has_and_belongs_to_many`
   - Đặt các custom validator trong thư mục app/validators
   - Nên dùng name scope
@@ -45,6 +247,37 @@ Ruby on Rails style guide
   # good
   validates :email, presence: true
 ```
+
+#### Scope
+* Đặt tên scope thể hiện việc lấy một tập hợp con trong tập hợp bản ghi cha. 
+* Hãy đặt tên scope sao cho có thể hiểu được một cách tự nhiên như sau 
+`[số nhiều của tên model] có đặc tính [tên scope]`. 
+(Ví dụ: với việc đặt tên scope là `active` trong model user có thể hiểu 
+            Hãy lấy ra các `[users] có đặc tính [active]`.)
+* Trong trường hợp có đối số, hãy kết hợp tên scope và đối số sao cho thật tự nhiên và dễ hiểu. 
+* Cố gắng tránh việc đặt tên scope có bao gồm tên model. 
+
+```ruby
+# Không tốt
+class User < ActiveRecord::Base
+  scope :active_users, ->{where activated: true}
+end
+class Post < ActiveRecord::Base
+  scope :by_author, ->author{where author_id: author.id}
+end
+
+# Tốt
+class User < ActiveRecord::Base
+  scope :active, ->{where activated: true}
+end
+class Post < ActiveRecord::Base
+  scope :posted_by, ->author{where author_id: author.id}
+end
+```
+
+* scope thì viết theo cách ngắn gọn của lambda. Nếu trong 1 dòng mà quá 80 kí tự thì nên cắt xuống dòng mới thích hợp để cho 1 dòng chỉ nên ít hơn 80 kí tự.
+
+* Một khi đã dùng `has_many` hoặc `has_one` đối với một model thì nhất định phải khai báo `belongs_to` với model tương ứng.
 
 ## Views
 ### Qui tắc chung
