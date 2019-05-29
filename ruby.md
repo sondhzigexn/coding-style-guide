@@ -6,10 +6,66 @@ Ruby style guide
   - Dùng space trước và sau các dấu +,-,x,/, {, }, =
   - Không dùng space sau dấu (, [ và trước dấu ), ]
   - Thêm dấu _ ở các số lớn. Vd: 100000 --> 100_000
+  - Nếu class, method không có nội dung thì dùng inline format
+ 
+    ```ruby
+    # bad
+    class FooError < StandardError
+    end
+
+    # good
+    class FooError < StandardError; end
+
+    # good
+    FooError = Class.new(StandardError)
+    ```
+  - Thêm một dòng trống giữa các phương thức, và các nhóm xử lý logic. 
+  
+    ```ruby
+    def some_method
+      data = initialize(options)
+
+      data.manipulate!
+
+      data.result
+    end
+
+    def some_method
+      result
+    end
+    ```
+  - Tránh dùng khoảng trắng thừa (thường gặp ở cuối dòng)
+  - Cuối file nên có thêm một dòng trống
 
 ## Cú pháp
-  - Dùng ( ) ở khai báo hàm có truyền tham số, không dùng () trong trường hợp hàm không nhận tham số
+  - Dùng () ở khai báo hàm có truyền tham số, không dùng () trong trường hợp hàm không nhận tham số
+  - Nếu block chỉ làm một việc thì ưu tiên dùng shorthand
+    ```ruby
+    # bad
+    names.map { |name| name.upcase }
 
+    # good
+    names.map(&:upcase)
+    ```
+   - Nếu block 1 dòng thì dùng `{...}`, nếu nhiều dòng thì dùng `do...end`
+    ```ruby
+    # bad
+    names.each do |name|
+      puts name
+    end
+
+    # good
+    names.each { |name| puts name }
+
+    # bad
+    names.select do |name|
+      name.start_with?('S')
+    end.map { |name| name.upcase }
+
+    # good
+    names.select { |name| name.start_with?('S') }.map(&:upcase)
+    ```
+    
 ### Các câu lệnh điều kiện
   - Không dùng and, or. Dùng &&, ||
   - Dùng ''unless'' thay cho ''if not''
@@ -18,16 +74,25 @@ Ruby style guide
   - Dùng các hàm số có sẵn như ''x.even?, x.odd?, x.nil?, x.zero?'' thay cho các câu so sánh ''x % 2 == 0, x % 2 == 1, x == nil, x == 0''
   - Trong trường hợp câu if/unless/while/until chỉ có một dòng, dùng inline format. Ví dụ
 
-```ruby
-do_something if some_condition
+    ```ruby
+    do_something if some_condition
 
-thay cho
+    thay cho
 
-if some_condition  
-  do_something  
-end
-```
+    if some_condition  
+      do_something  
+    end
+    ```
+  - Dùng toán tử 3 ngôi thay cho if/else/end
+  
+    ```ruby
+    # bad
+    result = if some_condition then something else something_else end
 
+    # good
+    result = some_condition ? something : something_else
+    ```
+    
 ### Câu lệnh lặp
   - Hạn chế dùng câu for, nên dùng câu each
   - Dùng ''until'' thay cho  ''while not''
