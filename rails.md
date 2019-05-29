@@ -240,13 +240,47 @@ Ngăn chặn việc phát sinh nhiều xử lý khi mà người dùng thao tác
   - Khi gọi hàm ActiveRecord#count phải gắn `:select => 'id'`.
   - Dùng hàm validates thay cho các hàm `validates_presence_of`, ... Ví dụ:
 
-```ruby
-  # bad
-  validates_presence_of :email
+    ```ruby
+      # bad
+      validates_presence_of :email
+
+      # good
+      validates :email, presence: true
+    ```
+  - Dùng find_each để duyệt qua một danh sách các ActiveRecord. Lặp qua một collection các record từ CSDL (vd: dùng phương thức all) rất kém hiệu quả, nguyên do là mỗi lần nó sẽ tạo ra một đối tượng. Thay vào đó, hãy dùng find_each để gom chúng vào và làm một lần.
   
-  # good
-  validates :email, presence: true
-```
+    ```ruby
+    # bad
+    Person.all.each do |person|
+      person.do_awesome_stuff
+    end
+
+    Person.where('age > 21').each do |person|
+      person.party_all_night!
+    end
+
+    # good
+    Person.find_each do |person|
+      person.do_awesome_stuff
+    end
+
+    Person.where('age > 21').find_each do |person|
+      person.party_all_night!
+    end
+    ```
+  - Định nghĩa tùy chọn dependent cho quan hệ has_many và has_one
+  
+    ```ruby
+    # bad
+    class Post < ActiveRecord::Base
+      has_many :comments
+    end
+
+    # good
+    class Post < ActiveRecord::Base
+      has_many :comments, dependent: :destroy
+    end
+    ```
 
 #### Scope
 * Đặt tên scope thể hiện việc lấy một tập hợp con trong tập hợp bản ghi cha. 
@@ -279,31 +313,303 @@ end
 
 * Một khi đã dùng `has_many` hoặc `has_one` đối với một model thì nhất định phải khai báo `belongs_to` với model tương ứng.
 
-## Views
-### Qui tắc chung
-  - Không gọi model trực tiếp từ view.
-  - Với các thao tác format phức tạp, nên để trong helper(hoặc decorator tùy project).
-  - Các đoạn view hay dùng nên tạo partial views.
-  - Nếu render partial view cho một mảng các object nên dùng option: `collection` thay cho vòng lăp
-  - Nên dùng thẻ ``<%- -%>``
-  - Nếu chèn url, dùng thẻ url_for, không dùng đường dẫn.
-  - Dùng đường dẫn tuyệt đối khi gọi partial view. Ví dụ
+### ActiveRecord Queries
 
+* <a name="avoid-interpolation"></a>
+  Tránh nhúng biến vào String của câu truy vấn, nó sẽ dễ dẫn đến SQL injection.
+<sup>[[link](#avoid-interpolation)]</sup>
+
+  ```Ruby
+  # bad - param will be interpolated unescaped
+  Client.where("orders_count = #{params[:orders]}")
+
+  # good - param will be properly escaped
+  Client.where('orders_count = ?', params[:orders])
+  ```
+
+* <a name="named-placeholder"></a>
+  Nếu câu truy vấn có nhiều hơn một tham số, ưu tiên dùng phương án
+  tham-số-là-tên (named placeholders) thay vì dùng `?`.
+  Việc này sẽ giúp bạn tránh việc nhầm lẫn, sai sót khi các tham số không
+  được đặt đúng thứ tự.
+<sup>[[link](#named-placeholder)]</sup>
+
+  ```Ruby
+  # okish
+  Client.where(
+    'created_at >= ? AND created_at <= ?',
+    params[:start_date], params[:end_date]
+  )
+
+  # good
+  Client.where(
+    'created_at >= :start_date AND created_at <= :end_date',
+    start_date: params[:start_date], end_date: params[:end_date]
+  )
+  ```
+
+* <a name="find"></a>
+  Khi cần query một record bằng `id`, ưu tiên dùng `find` hơn `where`
+<sup>[[link](#find)]</sup>
+
+  ```Ruby
+  # bad
+  User.where(id: id).take
+
+  # good
+  User.find(id)
+  ```
+
+* <a name="find_by"></a>
+  Khi cần query một record bằng một vài attribute, ưu tiên dùng `find_by`
+  hơn `where` và `find_by_attribute`.
+<sup>[[link](#find_by)]</sup>
+
+  ```Ruby
+  # bad
+  User.where(first_name: 'Bruce', last_name: 'Wayne').first
+
+  # bad
+  User.find_by_first_name_and_last_name('Bruce', 'Wayne')
+
+  # good
+  User.find_by(first_name: 'Bruce', last_name: 'Wayne')
+  ```
+
+* <a name="where-not"></a>
+  Ưu tiên dùng `where.not` hơn là SQL thuần.
+<sup>[[link](#where-not)]</sup>
+
+  ```Ruby
+  # bad
+  User.where("id != ?", id)
+
+  # good
+  User.where.not(id: id)
+  ```
+* <a name="squished-heredocs"></a>
+  Khi dùng query trực tiếp bằng `find_by_sql`, dùng heredocs cùng với `squish`.
+  Bạn sẽ format code theo SQL tốt hơn (xuống dòng, thụt đầu dòng, tô màu từ khóa)
+  và được hiển thị tốt ở nhiều tools như GitHub, Atom, and RubyMine.
+<sup>[[link](#squished-heredocs)]</sup>
+
+  ```Ruby
+  User.find_by_sql(<<SQL.squish)
+    SELECT
+      users.id, accounts.plan
+    FROM
+      users
+    INNER JOIN
+      accounts
+    ON
+      accounts.user_id = users.id
+    # further complexities...
+  SQL
+  ```
+
+  [`String#squish`](http://apidock.com/rails/String/squish) sẽ tự bỏ thụt đầu dòng
+  hay ký hiệu xuống dòng, nên khi log ra sẽ rất khó đọc, kiểu như này:
+  ```
+  SELECT\n    users.id, accounts.plan\n  FROM\n    users\n  INNER JOIN\n    acounts\n  ON\n    accounts.user_id = users.id
+  ```
+
+
+## Migration
+
+* Quản lý phiên bản của ``` schema.rb ``` （hoặc là ``` structure.sql ```）
+* Dùng rake db:schema:load thay vì rake db:migrate để khởi tạo CSDL rỗng.
+* Sử dụng ``` rake db:test:prepare ``` để tạo database phục vụ cho test
+* Nếu cần thiết lập giá trị mặc định, thì không thiết lập tại tầng ứng dụng mà thiết lập thông qua migration
 
 ```ruby
-<%= render :partial => "/jobs/show", :locals => { :job => @job } %>
+# không tốt - gán giá trị mặc định tại tầng ứng dụng
+def amount
+  self[:amount] or 0
+end
 ```
+
+Việc thiết lập giá trị mặc định của các bảng chỉ trong ứng dụng là cách làm tạm bợ, có thể sinh ra lỗi trong ứng dụng. Hơn nữa, ngoại trừ những ứng dụng khá nhỏ thì hầu như các ứng dụng đều chia sẻ database với các ứng dụng khác, thế nên nếu chỉ thiết lập trong ứng dụng thì tính nhất quán của dữ liệu sẽ không còn được đảm bảo.
+
+* Quy định ràng buộc khoá ngoài. Mặc dù ActiveRecord không hỗ trợ điều này nhưng mà có thể dùng gem của bên thứ 3 như [schema_plus](https://github.com/lomba/schema_plus).
+
+* Để thay đổi cấu trúc bảng như thêm column thì viết theo cách mới của Rails 3.1. Tóm lại, không sử dụng ``` up ``` hoặc ``` down ``` mà sử dụng ``` change ```. Rails nó tự biết để  `revert`, `rollback`. Kiểm tra kĩ các trường hợp phức tạp
+
+```ruby
+# cách viết cũ
+class AddNameToPerson < ActiveRecord::Migration
+  def up
+    add_column :persons, :name, :string
+  end
+
+  def down
+    remove_column :person, :name
+  end
+end
+
+# cách viết mới tiện hơn
+class AddNameToPerson < ActiveRecord::Migration
+  def change
+    add_column :persons, :name, :string
+  end
+end
+```
+
+* Không sử dụng class của model trong migration. Tại vì model class thì rất dễ bị thay đổi, khi đó xử lý của migration trước đây có thể bị ảnh hưởng.
+
+## Views
+### Qui tắc chung
+  - Không gọi model trực tiếp từ view
+  - Tuy nhiên vẫn có ngoại lệ cho phép trực tiếp gọi Model trong View như một master cho các thẻ như thẻ Select
+  - Với các thao tác format phức tạp, nên để trong helper(hoặc decorator tùy project)
+  - Các đoạn view hay dùng nên tạo partial views
+  - Nếu render partial view cho một mảng các object nên dùng option: `collection` thay cho vòng lăp
+  - Thêm 1 space bên trong các ``` <% ``` , ``` <%= ``` và ``` %> ```
+    ```ruby
+    #Cách viết không tốt
+    <%foo%>
+    <% bar%>
+    <%=bar%>
+    <%=bar %>
+
+    #Cách viết tốt
+    <% foo %>
+    <%= bar %>
+    ```
+  - Nếu chèn url, dùng thẻ url_for, không dùng đường dẫn
+  - Không sử dụng form_tag khi mà có thể sử dụng form_for
+  - Dùng đường dẫn tuyệt đối khi gọi partial view. Ví dụ
+
+    ```ruby
+    <%= render :partial => "/jobs/show", :locals => { :job => @job } %>
+    ```
 
 ### Assets
   - Thư mục ''app/assets'' để lưu các custom css, javascript.
   - Thư mục ''lib/assets'' để lưu các thư viện css, javascript hay dùng giữa các project.
   - Thư mục ''vendor/assets'' để lưu các thư viện javascript như jquery, bootstrap, ...
   - Nên sử dụng các phiên bản gem của các thư viện js, css như:  `jquery-rails, jquery-ui-rails, bootstrap-sass, zurb-foundation`
+  - Trong CSS khi viết url thì dùng asset_url
 
 ## Mailer
   - Đặt tên mailer theo format SomethingMailer
   - Nên tạo 2 phiên bản text và html
   - Hạn chế thực gọi hàm gửi mail trực tiếp trong controller(gây delay khi generate view). Nên dùng các gem tạo backgound job như https://github.com/mperham/sidekiq|Sidekiq
+  
+## Active Support Core Extensions
+
+* <a name="try-bang"></a>
+  Ưu tiên dùng toán tử truy xuất an toàn của Ruby 2.3 `&.` hơn `ActiveSupport#try!`.
+<sup>[[link](#try-bang)]</sup>
+
+```ruby
+# bad
+obj.try! :fly
+
+# good
+obj&.fly
+```
+
+* <a name="active_support_aliases"></a>
+  Ưu tiên dùng các hàm trong thư viện chuẩn của Ruby hơn
+  các bí danh của `ActiveSupport`.
+<sup>[[link](#active_support_aliases)]</sup>
+
+```ruby
+# bad
+'the day'.starts_with? 'th'
+'the day'.ends_with? 'ay'
+
+# good
+'the day'.start_with? 'th'
+'the day'.end_with? 'ay'
+```
+
+* <a name="active_support_extensions"></a>
+  Ưu tiên dùng thư viện chuẩn của Ruby hơn các extension của  `ActiveSupport`
+  không thông dụng.
+<sup>[[link](#active_support_extensions)]</sup>
+
+```ruby
+# bad
+(1..50).to_a.forty_two
+1.in? [1, 2]
+'day'.in? 'the day'
+
+# good
+(1..50).to_a[41]
+[1, 2].include? 1
+'the day'.include? 'day'
+```
+
+* <a name="inquiry"></a>
+  Ưu tiên dùng toán tử so sánh của `ActiveSupport` hơn `Array#inquiry`,
+  `Numeric#inquiry` và `String#inquiry`.
+<sup>[[link](#inquiry)]</sup>
+
+```ruby
+# bad - String#inquiry
+ruby = 'two'.inquiry
+ruby.two?
+
+# good
+ruby = 'two'
+ruby == 'two'
+
+# bad - Array#inquiry
+pets = %w(cat dog).inquiry
+pets.gopher?
+
+# good
+pets = %w(cat dog)
+pets.include? 'cat'
+
+# bad - Numeric#inquiry
+0.positive?
+0.negative?
+
+# good
+0 > 0
+0 < 0
+```
+
+## Time
+
+* <a name="tz-config"></a>
+  Cấu hình `timezone` trong `application.rb`.
+<sup>[[link](#tz-config)]</sup>
+
+  ```Ruby
+  config.time_zone = 'Eastern European Time'
+  # optional - note it can be only :utc or :local (default is :utc)
+  config.active_record.default_timezone = :local
+  ```
+
+* <a name="time-parse"></a>
+  Không dùng `Time.parse`, thay vào đó hãy dùng `Time.zone.parse`
+  `Time.parse` sẽ lấy `timezone` của hệ thống.
+<sup>[[link](#time-parse)]</sup>
+
+  ```Ruby
+  # bad
+  Time.parse('2015-03-02 19:05:37')
+
+  # good
+  Time.zone.parse('2015-03-02 19:05:37') # => Mon, 02 Mar 2015 19:05:37 EET +02:00
+  ```
+
+* <a name="time-now"></a>
+  Không dùng `Time.now`.
+  `Time.now` sẽ lấy `timezone` của hệ thống.
+<sup>[[link](#time-now)]</sup>
+
+  ```Ruby
+  # bad
+  Time.now
+
+  # good
+  Time.zone.now # => Fri, 12 Mar 2014 22:04:47 EET +02:00
+  Time.current # Tương tự nhưng viết ngắn hơn
+  ```
 
 ## Bundle
   - Đặt gem theo group tùy vào môi trường.
